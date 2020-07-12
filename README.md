@@ -15,7 +15,7 @@ function mountCallback<T>(callback: T, deps: Array<mixed> | void | null): T {
   return callback;
 }
 
-// 组件 render 时执行 updateCallback：读取缓存，判断依赖数组是否变化，若变化，则返回新创建的内联函数 callback，否则返回缓存中的函数
+// 组件 render 时执行 updateCallback：读取缓存，判断依赖数组是否变化，若变化，则返回新创建的内联函数 callback，否则返回缓存中的函数。返回结果下一步就被传递给子组件
 function updateCallback<T>(callback: T, deps: Array<mixed> | void | null): T {
   const hook = updateWorkInProgressHook();
   const nextDeps = deps === undefined ? null : deps;
@@ -33,3 +33,108 @@ function updateCallback<T>(callback: T, deps: Array<mixed> | void | null): T {
 }
 ```
 
+
+#### good cases
+1. 分离-多个函数，传递给多个子组件
+* 不使用 useCallback
+```
+export default function App() {
+  const [count1, setCount1] = useState(0);
+  const [count2, setCount2] = useState(0);
+
+  const handleClickButton1 = () => {
+    setCount1(count1 + 1);
+  };
+
+  const handleClickButton2 = () => {
+    setCount2(count2 + 1);
+  };
+  const handleClickButton3 = () => {
+    setCount3(count3 + 1);
+  };
+
+  return (
+    <div>
+      <div>
+        <Button onClickButton={handleClickButton1}>Button1</Button>
+      </div>
+      <div>
+        <Button onClickButton={handleClickButton2}>Button2</Button>
+      </div>
+       <div>
+        <Button onClickButton={handleClickButton3}>Button3</Button>
+      </div>     
+    </div>
+  );
+}
+```
+```
+const Button = ({ onClickButton, children }) => {
+  console.log("Button render");
+  return (
+    <>
+      <button onClick={onClickButton}>{children}</button>
+      <span>{Math.random()}</span>
+    </>
+  );
+};
+
+export default React.memo(Button);
+```
+handleClickButton1 被触发后，会导致传递给三个组件的函数引用都发生变化。于是三个子组件都重新render。
+* 使用 useCallback
+```
+export default function App() {
+  const [count1, setCount1] = useState(0);
+  const [count2, setCount2] = useState(0);
+
+  const handleClickButton1 = useCallback(() => {
+    setCount2(count1 + 1);
+  }, [count1]);
+
+  const handleClickButton2 = useCallback(() => {
+    setCount2(count2 + 1);
+  }, [count2]);
+  
+  const handleClickButton3 = useCallback(() => {
+    setCount2(count3 + 1);
+  }, [count3]);
+
+  return (
+    <div>
+      <div>
+        <Button onClickButton={handleClickButton1}>Button1</Button>
+      </div>
+      <div>
+        <Button onClickButton={handleClickButton2}>Button2</Button>
+      </div>
+       <div>
+        <Button onClickButton={handleClickButton3}>Button3</Button>
+      </div>     
+    </div>
+  );
+}
+```
+handleClickButton1 被触发后，只会导致传递给第一个子组件的引用发生变化。所以只有第一个子组件重新render了。这就是useCallback的好处。
+
+
+
+#### bad cases
+* 每次父组件 render 都会給子组件一个新的函数引用（trigger handleClickButton1->render App->update count1->recreate and return new function reference），与不用useCallback相比，还增加了比较新旧 inputs 的消耗。 
+```
+export default function App() {
+  const [count1, setCount1] = useState(0);
+
+  const handleClickButton1 = useCallback(() => {
+    setCount1(count1 + 1);
+  }, [count1]);
+
+  return (
+    <div>
+      <div>
+        <Button onClickButton={handleClickButton1}>Button1</Button>
+      </div>   
+    </div>
+  );
+}
+```
