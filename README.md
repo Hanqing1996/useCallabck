@@ -1,3 +1,7 @@
+#### 参考
+* [React Hooks 系列之5 useCallback](https://juejin.im/post/5ec2465a5188256d841a552a)
+* [详解 useCallback & useMemo](https://juejin.im/post/5e78884c6fb9a07c8679220d)
+
 #### useCallback
 1. useCallback的回调函数在组件每次render时都会被创建（不管依赖数组是否变化），useCallback的性能优化不体现于是否创建新函数。
 2. 当依赖函数变化时，将返回新创建的内联函数，否则返回缓存的旧函数。在子组件使用React.memo（props值不变，则不重新render子组件）的情况下，useCallback可以避免“父组件需要重新render，但依赖数组不变”场景下，子组件的render。
